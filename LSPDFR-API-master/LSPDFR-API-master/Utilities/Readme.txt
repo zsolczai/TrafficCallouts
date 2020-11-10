@@ -1,1 +1,0 @@
-This should contain all kinds of (development) helpers and utilities, such as the AppDomain helper. Please use subfolders per project.

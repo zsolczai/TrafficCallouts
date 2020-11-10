@@ -23,7 +23,6 @@ namespace TrafficCallouts
         {
             Game.LogTrivial("TrafficCallouts has been cleaned up");
         }
-
         private static void OnOnDutyStateChangedHandler(bool OnDuty)
         {
             if (OnDuty)
