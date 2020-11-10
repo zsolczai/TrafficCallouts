@@ -72,18 +72,11 @@ namespace TrafficCallouts.Callouts
                 
             }
 
-            if (State == CalloutState.Dispatched)
+            if (State == CalloutState.Dispatched &&
+                Game.LocalPlayer.Character.DistanceTo(CalloutPosition) < 50f)
             {
-                if (Game.LocalPlayer.Character.DistanceTo(CalloutPosition) < 30f)
-                {
-                    HandleOfficerArrivedAtScene();
-                    vehicleBlip.IsRouteEnabled = false;
-                }
-
-                if (Game.LocalPlayer.Character.DistanceTo(CalloutPosition) < 10f)
-                {
-                    HandleOfficerApproachedDrvier();
-                }
+                State = CalloutState.AtScene;
+                HandleOfficerArrivedAtScene();                
             }
         }
         
@@ -140,10 +133,7 @@ namespace TrafficCallouts.Callouts
             /// Finds a point on the side of the road and moves the vehicle to that point. Using this method:
             /// BOOL _GET_ROAD_SIDE_POINT_WITH_HEADING(float x, float y, float z, float heading, Vector3* outPosition);
             NativeFunction.Natives.xA0F8A7517A273C05<bool>(
-                spawnPoint.X + 20.0f,
-                spawnPoint.Y + 20.0f,
-                spawnPoint.Z,
-                brokenVehicle.Heading, out Vector3 outPosition);
+                spawnPoint.X + 20.0f, spawnPoint.Y + 20.0f, spawnPoint.Z, brokenVehicle.Heading, out Vector3 outPosition);
             vehicleDesiredPosition = outPosition;
 
             driver = brokenVehicle.CreateRandomDriver();
@@ -156,21 +146,25 @@ namespace TrafficCallouts.Callouts
         }
         private void HandleOfficerArrivedAtScene()
         {
-            vehicleBlip.IsRouteEnabled = false;
+            //vehicleBlip.DisableRoute();
+            //vehicleBlip.Delete();
             Game.DisplayHelp("Officer Arrived on Scene...");
+            driver.Tasks.ClearImmediately();
             driver.Tasks.LeaveVehicle(LeaveVehicleFlags.None);
+
+            Game.DisplaySubtitle("~b~TrafficCallouts - Approach the driver");
 
             if (GetDiceRoll() == 1)
             {
-                Game.LogTrivial("diceroll is 1");
+                Game.LogTrivial("diceroll is drunk");
                 AnimationSet drunkAnimset = new AnimationSet("move_m@drunk@verydrunk");
                 drunkAnimset.LoadAndWait();
                 driver.MovementAnimationSet = drunkAnimset;
                 Game.DisplayNotification("", "", "TrafficCallouts", "Observation:", "~r~Driver smells like alcohol");
-                Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "Question the driver", "Press E twice");
             }
             else
             {
+                Game.LogTrivial("diceroll is sober");
                 if (driver.IsFemale)
                 {
                     Game.LogTrivial("driver is female()");
@@ -193,7 +187,7 @@ namespace TrafficCallouts.Callouts
         }
         private void HandleOfficerApproachedDrvier()
         {
-            Game.DisplayNotification("", "", "TrafficCallouts", "Approach the driver", "");
+            Game.DisplayNotification("", "", "~r~TrafficCallouts", "Approach the driver line 196", "");
         }
         private int GetDiceRoll()
         {
