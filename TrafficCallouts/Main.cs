@@ -1,12 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Rage;
+﻿using Rage;
 using LSPD_First_Response.Mod.API;
-using System.Reflection;
-using System.CodeDom;
 
 namespace TrafficCallouts
 {
@@ -15,23 +8,24 @@ namespace TrafficCallouts
         public static string versionNumber;
         public override void Initialize()
         {
-            versionNumber = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
             Functions.OnOnDutyStateChanged += OnOnDutyStateChangedHandler;
+            versionNumber = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
         }
 
         public override void Finally()
         {
             Game.LogTrivial("TrafficCallouts has been cleaned up");
         }
+
         private static void OnOnDutyStateChangedHandler(bool OnDuty)
         {
             if (OnDuty)
             {
                 RegisterCallouts();
-                Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "~y~v" + versionNumber + " ~b~by Normann~b~", "Loaded!");
+                Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "~y~v" + versionNumber + " ~b~by Normann~b~", "~g~Loaded!");
             } else
             {
-                Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "~y~v" + versionNumber + " ~b~by Normann~b~", "Offloaded");
+                Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "~y~v" + versionNumber + " ~b~by Normann~b~", "~g~Offloaded");
             }
 
         }
@@ -39,7 +33,6 @@ namespace TrafficCallouts
         private static void RegisterCallouts()
         {
             Functions.RegisterCallout(typeof(Callouts.DisabledVehicle));
-            //Functions.RegisterCallout(typeof(Callouts.StolenVehicle));
         }
     }
 }

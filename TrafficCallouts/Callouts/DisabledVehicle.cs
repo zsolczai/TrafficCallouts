@@ -10,13 +10,18 @@ using LSPD_First_Response.Mod.API;
 using LSPD_First_Response.Mod.Callouts;
 using LSPD_First_Response.Engine.Scripting.Entities;
 using System.Runtime.InteropServices;
+using TrafficCallouts.Helpers;
 
 namespace TrafficCallouts.Callouts
 {
-    [CalloutInfo("Disabled Vehicle", CalloutProbability.Medium)]
-
-    public class DisabledVehicle: Callout
+    [CalloutInfo("Disabled Vehicle", CalloutProbability.VeryLow)]
+    public class DisabledVehicle : Callout
     {
+        public enum CalloutState
+        {
+            Cancelled, Created, Dispatched, UnitResponding, AtScene, Completed
+        }
+        public new CalloutState State { get; set; }
         private string calloutMessage = "Disabled Vehicle";
         private Ped driver;
         private Vehicle brokenVehicle;
@@ -24,15 +29,11 @@ namespace TrafficCallouts.Callouts
         private Blip vehicleBlip;
         private Blip driverBlip;
         private string[] VehiclesToSelectFrom = new string[] {
-            "ORACLE", "PRIMO", "PRIMO2", "EMPEROR", "EMPEROR2", "INGOT", "RANCHERXL", "HELLION"
+            "ORACLE"//, "PRIMO", "PRIMO2", "EMPEROR", "EMPEROR2", "INGOT", "RANCHERXL", "HELLION"
         };
-        private bool sceneNeeded = false;
-        private bool sceneCreated = false;
-        private bool officerFirstArrivedOnScene = false;
-        private bool officerApproachedDriver = false;
-        private bool calloutIsRunning = false;
 
-        public override bool OnBeforeCalloutDisplayed() {
+        public override bool OnBeforeCalloutDisplayed()
+        {
             // TODO: change distance from spawning scene
             CalloutPosition = World.GetNextPositionOnStreet(Game.LocalPlayer.Character.Position.Around(100f));
             vehicleDesiredPosition = CalloutPosition;
@@ -44,71 +45,53 @@ namespace TrafficCallouts.Callouts
             Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "~g~Version 1.0~w~", calloutMessage);
             return base.OnBeforeCalloutDisplayed();
         }
-        public override bool OnCalloutAccepted() {
+
+        public override bool OnCalloutAccepted()
+        {
+            State = CalloutState.Dispatched;
             Helpers.VoiceHelper.PlayAudioDispatch10_4();
-            calloutIsRunning = true;
-            sceneNeeded = true;
             GetDirectionsToCall(CalloutPosition);
+            CreateScene(CalloutPosition);
             return base.OnCalloutAccepted();
         }
+
         public override void OnCalloutNotAccepted()
         {
-            sceneNeeded = false;
             base.OnCalloutNotAccepted();
-
-            if (driver.Exists()) 
-            { 
-                driver.Delete();
-            }
-            if (brokenVehicle.Exists()) {
-                brokenVehicle.Delete();
-            }
+            if (driver.Exists()) { driver.Delete(); }
+            if (brokenVehicle.Exists()) { brokenVehicle.Delete(); }
             Functions.PlayScannerAudio("OTHER_UNIT_TAKING_CALL");
         }
-        public override void Process() {
-            base.Process();
-            Game.DisplayNotification("CalloutIsRuinning: " + calloutIsRunning);
 
-            if (CalloutShouldEnd() && !sceneNeeded)
-            {
-                End();
-            }
+        public override void Process()
+        {
+            base.Process();
 
             if (isBrokenVehicleInPosition())
             {
-                vehicleBlip.Position = brokenVehicle.Position;
+                
             }
 
-            if (!sceneCreated && sceneNeeded)
-            {
-
-                if (Game.LocalPlayer.Character.DistanceTo(CalloutPosition) < 50f)
-                {                   
-                   CreateScene(CalloutPosition);                    
-                }
-            }
-
-            if (!officerApproachedDriver)
-            {
-                if (Game.LocalPlayer.Character.DistanceTo(CalloutPosition) < 10f)
-                {
-                    officerApproachedDriver = true;
-                    HandleOfficerApproachedDrvier();
-                }
-            }
-            if (!officerFirstArrivedOnScene)
+            if (State == CalloutState.Dispatched)
             {
                 if (Game.LocalPlayer.Character.DistanceTo(CalloutPosition) < 30f)
                 {
-                    officerFirstArrivedOnScene = true;                    
                     HandleOfficerArrivedAtScene();
+                    vehicleBlip.IsRouteEnabled = false;
+                }
+
+                if (Game.LocalPlayer.Character.DistanceTo(CalloutPosition) < 10f)
+                {
+                    HandleOfficerApproachedDrvier();
                 }
             }
         }
-        public override void End() {
+        
+        public override void End()
+        {
             base.End();
-            calloutIsRunning = false;
-            Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "~g~Version 1.0~w~", "End of Call");
+            State = CalloutState.Completed;
+            Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "~r~Version 1.0~r~", "Callout has ended!");
 
             if (driver.Exists())
             {
@@ -133,8 +116,9 @@ namespace TrafficCallouts.Callouts
 
         private bool CalloutShouldEnd()
         {
-            return !(driver.Exists() || brokenVehicle.Exists());
+            return (State == CalloutState.Completed);
         }
+
         private void GetDirectionsToCall(Vector3 location)
         {
             vehicleBlip = new Blip(location);
@@ -146,33 +130,34 @@ namespace TrafficCallouts.Callouts
             int index = rand.Next(VehiclesToSelectFrom.Length);
             string randomModelName = VehiclesToSelectFrom[index];
 
-            brokenVehicle = new Vehicle(randomModelName, spawnPoint);            
+            brokenVehicle = new Vehicle(randomModelName, spawnPoint);
             brokenVehicle.IsPersistent = true;
             VehicleDoor hood = brokenVehicle.Doors[4];
-            hood.IsOpen = true;            
+            hood.IsOpen = true;
             vehicleBlip = brokenVehicle.AttachBlip();
             vehicleBlip.IsFriendly = true;
 
             /// Finds a point on the side of the road and moves the vehicle to that point. Using this method:
             /// BOOL _GET_ROAD_SIDE_POINT_WITH_HEADING(float x, float y, float z, float heading, Vector3* outPosition);
             NativeFunction.Natives.xA0F8A7517A273C05<bool>(
-                spawnPoint.X + 100.0f,
-                spawnPoint.Y + 100.0f,
-                spawnPoint.Z + 50.0f,
+                spawnPoint.X + 20.0f,
+                spawnPoint.Y + 20.0f,
+                spawnPoint.Z,
                 brokenVehicle.Heading, out Vector3 outPosition);
             vehicleDesiredPosition = outPosition;
 
             driver = brokenVehicle.CreateRandomDriver();
+            driverBlip = driver.AttachBlip();
+            driverBlip.IsFriendly = true;
             driver.IsPersistent = true;
             driver.BlockPermanentEvents = true;
             driver.Tasks.DriveToPosition(vehicleDesiredPosition, 30.0f, VehicleDrivingFlags.FollowTraffic);
-            brokenVehicle.EngineHealth = 200.0f;
-            sceneCreated = true;
+            brokenVehicle.EngineHealth = 100.0f;
         }
         private void HandleOfficerArrivedAtScene()
         {
             vehicleBlip.IsRouteEnabled = false;
-            Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "Approach the driver", "Officer On Scene");
+            Game.DisplayHelp("Officer Arrived on Scene...");
             driver.Tasks.LeaveVehicle(LeaveVehicleFlags.None);
 
             if (GetDiceRoll() == 1)
@@ -181,7 +166,7 @@ namespace TrafficCallouts.Callouts
                 AnimationSet drunkAnimset = new AnimationSet("move_m@drunk@verydrunk");
                 drunkAnimset.LoadAndWait();
                 driver.MovementAnimationSet = drunkAnimset;
-                Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "Driver smells like alcohol", "Press E twice");
+                Game.DisplayNotification("", "", "TrafficCallouts", "Observation:", "~r~Driver smells like alcohol");
                 Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "Question the driver", "Press E twice");
             }
             else
@@ -189,26 +174,26 @@ namespace TrafficCallouts.Callouts
                 if (driver.IsFemale)
                 {
                     Game.LogTrivial("driver is female()");
-                    AnimationSet textIdleSet = new AnimationSet("amb@code_human_wander_idles@female@idle_a");
+                    //AnimationSet textIdleSet = new AnimationSet("amb@code_human_wander_idles@female@idle_a");
+                    AnimationSet textIdleSet = new AnimationSet("move_m@drunk@verydrunk");
                     textIdleSet.LoadAndWait();
                     driver.MovementAnimationSet = textIdleSet;
-                    Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "Talk to the driver", "Press E twice");
                 }
                 else
                 {
                     Game.LogTrivial("driver is male()");
-                    AnimationSet textIdleSet = new AnimationSet("amb@code_human_wander_idles@male@idle_a");
+                    AnimationSet textIdleSet = new AnimationSet("move_m@drunk@verydrunk");
+                    //AnimationSet textIdleSet = new AnimationSet("amb@code_human_wander_idles@male@idle_a");
                     textIdleSet.LoadAndWait();
                     driver.MovementAnimationSet = textIdleSet;
-                    Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "Talk to the driver", "Press E twice");
                 }
-                
+                Game.DisplayNotification("", "", "TrafficCallouts", "Observation:", "~w~Talk to the driver. Press T");
+
             }
         }
         private void HandleOfficerApproachedDrvier()
         {
-            Game.LogTrivial("HandleOfficerApproachedDrvier()");
-            Game.DisplayNotification("3dtextures", "mpgroundlogo_cops", "TrafficCallouts", "Question the driver", "Press E twice");
+            Game.DisplayNotification("", "", "TrafficCallouts", "Approach the driver", "");
         }
         private int GetDiceRoll()
         {

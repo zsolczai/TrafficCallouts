@@ -54,8 +54,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Callouts\StolenVehicle.cs" />
     <Compile Include="Callouts\DisabledVehicle.cs" />
+    <Compile Include="Helpers\IsKeyDownWithComputerCheck.cs" />
     <Compile Include="Helpers\VoiceHelper.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
